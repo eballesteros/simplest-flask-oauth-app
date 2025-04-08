@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: flask-app
+    env: python
+    buildCommand: pip install poetry && poetry install
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: true
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false  
+      - key: COOKIE_SECRET
+        generateValue: true
+    # Make the Flask app private - only accessible within Render's network
+    private: true
+
+  - type: web
+    name: oauth2-proxy
+    env: docker
+    dockerfilePath: ./oauth2-proxy.Dockerfile
+    dockerContext: .
+    envVars:
+      - key: OAUTH2_PROXY_PROVIDER
+        value: github
+      - key: OAUTH2_PROXY_CLIENT_ID
+        fromService:
+          name: flask-app
+          type: web
+          envVarKey: GITHUB_CLIENT_ID
+      - key: OAUTH2_PROXY_CLIENT_SECRET
+        fromService:
+          name: flask-app
+          type: web
+          envVarKey: GITHUB_CLIENT_SECRET
+      - key: OAUTH2_PROXY_COOKIE_SECRET
+        fromService:
+          name: flask-app
+          type: web
+          envVarKey: COOKIE_SECRET
+      - key: OAUTH2_PROXY_EMAIL_DOMAINS
+        value: "*"
+      - key: OAUTH2_PROXY_PASS_USER_HEADERS
+        value: true
+      - key: OAUTH2_PROXY_SET_XAUTHREQUEST
+        value: true
+      - key: OAUTH2_PROXY_COOKIE_SECURE
+        value: true
+      - key: OAUTH2_PROXY_UPSTREAMS
+        value: "https://flask-app.onrender.com"
+      - key: OAUTH2_PROXY_REDIRECT_URL
+        value: "https://oauth2-proxy.onrender.com/oauth2/callback"
